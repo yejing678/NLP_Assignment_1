@@ -3,17 +3,13 @@ import os.path
 import io
 import sys
 import re
-import json
-import pickle
-import pandas as pd
 import urllib3
 import requests
 import bs4
 from bs4 import BeautifulSoup
 from tqdm import tqdm
-from time import sleep
-from pathlib import Path
-
+from argparse import ArgumentParser
+from utils import save_json, load_json
 
 sys.path.append(os.pardir)
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf8')
@@ -80,29 +76,53 @@ def scrape_by_novel_id_and_chapter_num(novel_id, chapter_num, output_dir, leave=
         for line in tqdm(all_text, leave=leave):
             f.write("{}\n".format(line[0]))
 
-def load_json(file_path, **kwargs):
-    if not isinstance(file_path, Path):
-        file_path = Path(file_path)
-    with open(str(file_path), 'r') as f:
-        data = json.load(f, **kwargs)
-    return data
+def scrape_by_novel_name_and_chapter_num_en(novel_name, chapter_num, output_dir, leave=False):
+    all_text = []
+    for c_id in tqdm(range(1, chapter_num + 1), leave=leave):
+        url = "https://allnovel.net/{}/page-{}.html".format(novel_name, c_id)
+        resp = requests.get(url)
+        resp.encoding = 'utf-8'
+        soup = BeautifulSoup(resp.content, 'html.parser')
+        for x in soup.find_all('div', {"class": ['des_novel']}):
+            for y in x.find_all('p'):
+                text = y.text.strip()
+                all_text.append(text)
 
+    result_file = "./{}/novel_{}.txt".format(output_dir, novel_name)
+    # print("Writing to file {}...".format(result_file))
+    with open(result_file, "w") as f:
+        for line in tqdm(all_text, leave=leave):
+            f.write("{}\n".format(line))
 
-def save_json(data, file_path, **kwargs):
-    dirname = os.path.dirname(file_path)
-    if not os.path.exists(dirname):
-        os.makedirs(dirname)
-    if not isinstance(file_path, Path):
-        file_path = Path(file_path)
-    with open(str(file_path), 'w') as f:
-        json.dump(data, f, indent=4, **kwargs)
+def get_chapter_num_by_novel_name_en(novel_name):
+    url = "https://allnovel.net/{}.html".format(novel_name)
+    resp = requests.get(url)
+    resp.encoding = 'utf-8'
+    soup = BeautifulSoup(resp.content, 'html.parser')
+    result = soup.find_all('table', {"class": ['table table-bordered table-striped']})[0]
+    chapter_num = len(result.find_all("a"))
+    return chapter_num
+
+def get_novel_infos_by_page_en(url):
+    resp = requests.get(url)
+    resp.encoding = 'utf-8'
+    soup = BeautifulSoup(resp.content, 'html.parser')
+    table = soup.find_all('div', {"class": ['col-sm-12 list-novel']})[0]
+
+    novel_infos = []
+    for novel_href_info in tqdm(table.find_all("a")):
+        novel_href = novel_href_info.attrs["href"]
+        novel_name = re.match(r"\/([^.]+).html", novel_href).groups()[0]
+        novel_infos.append((novel_name, get_chapter_num_by_novel_name_en(novel_name)))
+    return novel_infos
 
 
 if __name__ == '__main__':
     # some settings
-    output_dir = "new_novels"
+    output_dir_zh = "novels_zh"
+
     start_page = 1
-    end_page = 10
+    end_page = 1
     dic = {}
 
     # novel infos
@@ -115,14 +135,14 @@ if __name__ == '__main__':
         single_page_novel_infos = get_novel_infos_by_page(url)
         novel_infos.extend(single_page_novel_infos)
     print("Saving metadata files...")
-    save_json(novel_infos, os.path.join(output_dir, "metadata.json"), ensure_ascii=False)
+    save_json(novel_infos, os.path.join(output_dir_zh, "metadata.json"), ensure_ascii=False)
 
     # use this code to read from the metadata.json
-    content = load_json(os.path.join(output_dir, "metadata.json"), encoding="utf-8")
+    content = load_json(os.path.join(output_dir_zh, "metadata.json"), encoding="utf-8")
 
     # start scraping
     print("Start scraping {} novels...".format(len(novel_infos)))
     pbar = tqdm(novel_infos)
     for (novel_name, novel_id, chapter_num) in pbar:
         pbar.set_description("{}".format(novel_name))
-        scrape_by_novel_id_and_chapter_num(novel_id, chapter_num, output_dir)
+        scrape_by_novel_id_and_chapter_num(novel_id, chapter_num, output_dir_zh)
