@@ -76,6 +76,7 @@ def scrape_by_novel_id_and_chapter_num(novel_id, chapter_num, output_dir, leave=
         for line in tqdm(all_text, leave=leave):
             f.write("{}\n".format(line[0]))
 
+
 def scrape_by_novel_name_and_chapter_num_en(novel_name, chapter_num, output_dir, leave=False):
     all_text = []
     for c_id in tqdm(range(1, chapter_num + 1), leave=leave):
@@ -90,9 +91,10 @@ def scrape_by_novel_name_and_chapter_num_en(novel_name, chapter_num, output_dir,
 
     result_file = "./{}/novel_{}.txt".format(output_dir, novel_name)
     # print("Writing to file {}...".format(result_file))
-    with open(result_file, "w") as f:
+    with open(result_file, "w", encoding="UTF-8") as f:
         for line in tqdm(all_text, leave=leave):
             f.write("{}\n".format(line))
+
 
 def get_chapter_num_by_novel_name_en(novel_name):
     url = "https://allnovel.net/{}.html".format(novel_name)
@@ -102,6 +104,7 @@ def get_chapter_num_by_novel_name_en(novel_name):
     result = soup.find_all('table', {"class": ['table table-bordered table-striped']})[0]
     chapter_num = len(result.find_all("a"))
     return chapter_num
+
 
 def get_novel_infos_by_page_en(url):
     resp = requests.get(url)
@@ -118,31 +121,47 @@ def get_novel_infos_by_page_en(url):
 
 
 if __name__ == '__main__':
-    # some settings
+    parser = ArgumentParser()
+    parser.add_argument("--language", type=str, default="zh", help='zh or en for Chinese and English')
+    parser.add_argument("--start_page", type=int, default=1)
+    parser.add_argument("--end_page", type=int, default=1)
+    args = parser.parse_args()
     output_dir_zh = "novels_zh"
+    output_dir_en = "novels_en"
 
-    start_page = 1
-    end_page = 1
-    dic = {}
+    if args.language == "zh":
+        print("Preparing to get novel infos...")
+        novel_infos = []
+        for page_num in range(args.start_page, args.end_page + 1):
+            print("Searching Page {}...".format(page_num))
+            url = "https://www.jjwxc.net/bookbase_slave.php?t=0&booktype=free&opt=&page={}&endstr=&orderstr=4".format(
+                page_num)
+            single_page_novel_infos = get_novel_infos_by_page(url)
+            novel_infos.extend(single_page_novel_infos)
+        print("Saving metadata files...")
+        save_json(novel_infos, os.path.join(output_dir_zh, "metadata.json"), ensure_ascii=False)
 
-    # novel infos
-    print("Preparing to get novel infos...")
-    novel_infos = []
-    for page_num in range(start_page, end_page + 1):
-        print("Searching Page {}...".format(page_num))
-        url = "https://www.jjwxc.net/bookbase_slave.php?t=0&booktype=free&opt=&page={}&endstr=&orderstr=4".format(
-            page_num)
-        single_page_novel_infos = get_novel_infos_by_page(url)
-        novel_infos.extend(single_page_novel_infos)
-    print("Saving metadata files...")
-    save_json(novel_infos, os.path.join(output_dir_zh, "metadata.json"), ensure_ascii=False)
+        print("Start scraping {} novels...".format(len(novel_infos)))
+        pbar = tqdm(novel_infos)
+        for (novel_name, novel_id, chapter_num) in pbar:
+            pbar.set_description("{}".format(novel_name))
+            scrape_by_novel_id_and_chapter_num(novel_id, chapter_num, output_dir_zh)
+    elif args.language == "en":
+        print("Preparing to get novel infos...")
+        novel_infos = []
+        for page_num in range(args.start_page, args.end_page + 1):
+            print("Searching Page {}...".format(page_num))
+            url = "https://allnovel.net/romance.html?page={}".format(page_num)
+            single_page_novel_infos = get_novel_infos_by_page_en(url)
+            novel_infos.extend(single_page_novel_infos)
 
-    # use this code to read from the metadata.json
-    content = load_json(os.path.join(output_dir_zh, "metadata.json"), encoding="utf-8")
+        print("Saving metadata files...")
+        save_json(novel_infos, os.path.join(output_dir_en, "metadata.json"), ensure_ascii=False)
 
-    # start scraping
-    print("Start scraping {} novels...".format(len(novel_infos)))
-    pbar = tqdm(novel_infos)
-    for (novel_name, novel_id, chapter_num) in pbar:
-        pbar.set_description("{}".format(novel_name))
-        scrape_by_novel_id_and_chapter_num(novel_id, chapter_num, output_dir_zh)
+        print("Start scraping {} novels...".format(len(novel_infos)))
+        pbar = tqdm(novel_infos)
+        for (novel_name, chapter_num) in pbar:
+            pbar.set_description("{}".format(novel_name))
+            scrape_by_novel_name_and_chapter_num_en(novel_name, chapter_num, output_dir_en)
+    else:
+        print("language is wrong")
