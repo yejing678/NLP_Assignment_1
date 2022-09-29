@@ -11,9 +11,19 @@
 coming soon
 ## Usage
 ### web_crawler
-#### web_crawl.py for baike, wiki and novel. try:
+web_crawl.py for baike, wiki and novel. try:
+
     python web_crawl.py --N 2000 --home_url "http://baike.baidu.com/view/"
-#### crawl_novel.py for novels in both Chainese and Enlish. try:
+    
+crawl_novel.py for novels in both Chainese and Enlish. try:
+
     python crawl_novel.py --language zh  
+    
+### calculate entropy
+try
+
+    python calculate_entropy --entropy_type characters --language zh
+
+
 
  
