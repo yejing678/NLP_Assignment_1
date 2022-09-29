@@ -19,7 +19,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler(sys.stdout))
 delete_words = [',', '.', ':', ';', '?', '(', ')', '[', ']', '&', '!', '*', '@', '#', '$', '%',
-                     '1', '2', '3', '4', '5', '6', '7', '8', '9', '0']
+                '1', '2', '3', '4', '5', '6', '7', '8', '9', '0']
 stops = set(stopwords.words("english"))
 
 
@@ -83,11 +83,13 @@ def read_csv_data(data_path, entropy_type):
     return all_words
 
 
-def read_text(novel_path, entropy_type, language):
+def read_text(novel_path, entropy_type, language, percentage):
     all_words = []
     print("reading text data...")
     novel_files = os.listdir(novel_path)
-    for novel_file in tqdm(novel_files[:60]):
+    novels_num = len(novel_files)
+    num = int(novels_num * percentage)
+    for novel_file in tqdm(novel_files[:num]):
         with open(os.path.join(novel_path, novel_file), "r", encoding='UTF-8') as f:
             lines = f.readlines()
             processed_lines = [line.rstrip() for line in lines]
@@ -120,26 +122,31 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument("--dir_path", type=str,
                         default="/home/jye/Homework/web_crawler/novels_en/",
-                        help='novel_zh_path = "/home/jye/Homework/web_crawler/novels_zh/";'
-                             'novel_en_path = "/home/jye/Homework/web_crawler/novels_en/";'
-                             'baike_file = /home/jye/Homework/web_crawler/baike/txt/')
+                        help='novel_zh_path = "./web_crawler/novels_zh/";'
+                             'novel_en_path = "./web_crawler/novels_en/";'
+                             'baike_file = ./web_crawler/baike/txt/')
     parser.add_argument("--entropy_type", type=str, default="tokens", help="select characters or tokens")
     parser.add_argument("--language", type=str, default="en", help="zh or en")
     parser.add_argument("--domain", type=str, default="novel_en", help="novel_zh, novel_en, wiki, baike")
     args = parser.parse_args()
 
-    all_words = read_text(args.dir_path, args.entropy_type, args.language)
-    logger.info("{} {} are detected.".format(len(all_words), args.entropy_type))
+    percentages = [0.1, 0.2, 0.5, 0.8, 1]
+    for percentage in percentages:
+        all_words = read_text(args.dir_path, args.entropy_type, args.language, percentage=0.5)
+        logger.info("{}% of data is loaded.".format(percentage))
+        logger.info("{} {} are detected.".format(len(all_words), args.entropy_type))
 
-    print("Creating vocab...")
-    vocab = Vocabulary()
-    vocab.add_sequence(all_words)
-    vocab.create()
+        print("Creating vocab...")
+        vocab = Vocabulary()
+        vocab.add_sequence(all_words)
+        vocab.create()
 
-    print("Calculating entropy...")
-    all_word_ids = list(map(vocab.label2id_dict.get, all_words))
-    entropy_result = entropy2(all_word_ids)
-    logger.info("the entropy is {}".format(entropy_result))
+        print("Calculating entropy...")
+        all_word_ids = list(map(vocab.label2id_dict.get, all_words))
+        entropy_result = entropy2(all_word_ids)
+        logger.info("the entropy is {}".format(entropy_result))
 
-    log_file = '{}-{}-{}-{}'.format(args.language, args.entropy_type, args.domain, strftime("%y%m%d-%H%M", localtime()))
+    log_file = '{}-{}-{}-{}'.format(args.language, args.entropy_type, args.domain,
+                                    strftime("%y%m%d-%H%M", localtime()))
     logger.addHandler(logging.FileHandler(log_file))
+
