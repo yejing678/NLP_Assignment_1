@@ -8,7 +8,9 @@
     request    
     bs4
 ## Data
-coming soon
+[baiduwangpan](https://pan.baidu.com/s/1c3FuHOqSfun5uCQWcYWvxg?pwd=tysb)
+
+pwd =  tysb
 ## Usage
 ### web_crawler
 web_crawl.py for baike, wiki and novel. try:
